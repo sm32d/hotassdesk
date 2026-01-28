@@ -28,7 +28,7 @@ export default function BookingInterface() {
   const [seats, setSeats] = useState<Seat[]>([]);
   const [floorPlan, setFloorPlan] = useState<FloorPlan | null>(null);
   const [loading, setLoading] = useState(false);
-  const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
+  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
@@ -66,7 +66,7 @@ export default function BookingInterface() {
   };
 
   const handleBooking = async () => {
-    if (!selectedSeat) return;
+    if (selectedSeats.length === 0) return;
     
     setSubmitting(true);
     setMessage('');
@@ -76,11 +76,11 @@ export default function BookingInterface() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bookings: [{
-            seatId: selectedSeat,
+          bookings: selectedSeats.map(seatId => ({
+            seatId,
             bookingDate: date,
             slot
-          }]
+          }))
         })
       });
       
@@ -88,7 +88,7 @@ export default function BookingInterface() {
       
       if (res.ok) {
         setMessage('Booking successful!');
-        setSelectedSeat(null);
+        setSelectedSeats([]);
         fetchAvailability(); // Refresh
       } else {
         setMessage(data.error || 'Booking failed');
@@ -98,6 +98,14 @@ export default function BookingInterface() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const toggleSeat = (seatId: string) => {
+    setSelectedSeats(prev => 
+      prev.includes(seatId) 
+        ? prev.filter(id => id !== seatId)
+        : [...prev, seatId]
+    );
   };
 
   const isSeatAvailable = (seat: Seat) => {
@@ -121,7 +129,7 @@ export default function BookingInterface() {
             value={date}
             min={format(new Date(), 'yyyy-MM-dd')}
             onChange={(e) => setDate(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:outline-none"
+            className="text-gray-700 mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:outline-none"
           />
         </div>
         <div>
@@ -129,14 +137,14 @@ export default function BookingInterface() {
           <select
             value={slot}
             onChange={(e) => setSlot(e.target.value as any)}
-            className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:outline-none"
+            className="text-gray-700 mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:outline-none"
           >
             <option value="FULL_DAY">Full Day</option>
             <option value="AM">Morning (AM)</option>
             <option value="PM">Afternoon (PM)</option>
           </select>
         </div>
-        <div className="flex items-end">
+        <div className="flex items-end p-2">
           <div className="flex rounded-md shadow-sm" role="group">
             <button
               type="button"
@@ -171,44 +179,46 @@ export default function BookingInterface() {
       ) : (
         <>
           {viewMode === 'map' && floorPlan ? (
-            <div className="mb-8 overflow-auto border rounded-lg bg-gray-50 relative">
-               <div className="relative min-w-[800px] min-h-[600px] inline-block">
-                 <img
-                  src={floorPlan.imageUrl}
-                  alt="Floor Plan"
-                  className="max-w-none"
-                  style={{ display: 'block' }} 
-                 />
-                 
-                 {placedSeats.map(seat => {
-                   const available = isSeatAvailable(seat);
-                   const isSelected = selectedSeat === seat.id;
+            <div className="mb-8 border rounded-lg bg-gray-50 relative overflow-hidden">
+               <div className="overflow-auto max-h-[75vh]">
+                 <div className="relative min-w-[800px] min-h-[600px] inline-block">
+                   <img
+                    src={floorPlan.imageUrl}
+                    alt="Floor Plan"
+                    className="max-w-none"
+                    style={{ display: 'block' }} 
+                   />
                    
-                   return (
-                     <button
-                       key={seat.id}
-                       onClick={() => available && setSelectedSeat(isSelected ? null : seat.id)}
-                       disabled={!available}
-                       className={`absolute w-8 h-8 -ml-4 -mt-4 flex items-center justify-center rounded-full text-xs font-bold shadow-md border-2 transition-transform hover:scale-110 ${
-                         !available 
-                            ? 'bg-gray-200 border-gray-400 text-gray-400 cursor-not-allowed'
-                            : isSelected
-                              ? 'bg-blue-600 border-blue-800 text-white ring-2 ring-offset-2 ring-blue-500 z-10'
-                              : seat.type === 'SOLO'
-                                ? 'bg-green-100 border-green-500 text-green-800 hover:bg-green-200'
-                                : 'bg-blue-100 border-blue-500 text-blue-800 hover:bg-blue-200'
-                       }`}
-                       style={{ left: `${seat.x}%`, top: `${seat.y}%` }}
-                       title={`${seat.seatCode} (${seat.type}) - ${available ? 'Available' : 'Booked'}`}
-                     >
-                       {seat.seatCode}
-                     </button>
-                   );
-                 })}
+                   {placedSeats.map(seat => {
+                     const available = isSeatAvailable(seat);
+                     const isSelected = selectedSeats.includes(seat.id);
+                     
+                     return (
+                       <button
+                         key={seat.id}
+                         onClick={() => available && toggleSeat(seat.id)}
+                         disabled={!available}
+                         className={`absolute w-8 h-8 -ml-4 -mt-4 flex items-center justify-center rounded-full text-xs font-bold shadow-md border-2 transition-transform hover:scale-110 ${
+                           !available 
+                              ? 'bg-gray-200 border-gray-400 text-gray-400 cursor-not-allowed'
+                              : isSelected
+                                ? 'bg-blue-600 border-blue-800 text-white ring-2 ring-offset-2 ring-blue-500 z-10'
+                                : seat.type === 'SOLO'
+                                  ? 'bg-green-100 border-green-500 text-green-800 hover:bg-green-200'
+                                  : 'bg-blue-100 border-blue-500 text-blue-800 hover:bg-blue-200'
+                         }`}
+                         style={{ left: `${seat.x}%`, top: `${seat.y}%` }}
+                         title={`${seat.seatCode} (${seat.type}${seat.hasMonitor ? ', Monitor' : ''}) - ${available ? 'Available' : 'Booked'}`}
+                       >
+                         {seat.seatCode}
+                       </button>
+                     );
+                   })}
+                 </div>
                </div>
                
                {/* Legend for Map */}
-               <div className="absolute bottom-4 left-4 bg-white/90 p-3 rounded-lg shadow-md text-xs space-y-2 backdrop-blur-sm">
+               <div className="absolute bottom-4 left-4 z-20 bg-white/95 p-3 rounded-lg shadow-lg text-xs font-medium text-gray-900 space-y-2 backdrop-blur-sm border border-gray-200 pointer-events-none">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-green-100 border border-green-500"></div>
                     <span>Solo Desk (Available)</span>
@@ -243,13 +253,14 @@ export default function BookingInterface() {
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                 {(viewMode === 'list' ? seats : unplacedSeats).map((seat) => {
                   const available = isSeatAvailable(seat);
+                  const isSelected = selectedSeats.includes(seat.id);
                   return (
                     <button
                       key={seat.id}
-                      onClick={() => available && setSelectedSeat(selectedSeat === seat.id ? null : seat.id)}
+                      onClick={() => available && toggleSeat(seat.id)}
                       disabled={!available}
                       className={`flex flex-col items-center justify-center rounded-lg border p-4 text-center transition-colors ${
-                        selectedSeat === seat.id
+                        isSelected
                           ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
                           : available
                           ? 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
@@ -280,20 +291,22 @@ export default function BookingInterface() {
       {/* Booking Footer */}
       <div className="mt-8 flex items-center justify-between border-t pt-6">
         <div className="text-sm text-gray-500">
-          {selectedSeat ? (
+          {selectedSeats.length > 0 ? (
             <span>
-              Selected: <span className="font-bold text-gray-900">{seats.find(s => s.id === selectedSeat)?.seatCode}</span>
+              Selected ({selectedSeats.length}): <span className="font-bold text-gray-900">
+                {seats.filter(s => selectedSeats.includes(s.id)).map(s => s.seatCode).join(', ')}
+              </span>
             </span>
           ) : (
-            'Select a seat to continue'
+            'Select seats to continue'
           )}
         </div>
         <button
           onClick={handleBooking}
-          disabled={!selectedSeat || submitting}
+          disabled={selectedSeats.length === 0 || submitting}
           className="rounded-md bg-blue-600 px-6 py-2 text-white shadow-sm hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
-          {submitting ? 'Booking...' : 'Confirm Booking'}
+          {submitting ? 'Booking...' : `Confirm Booking (${selectedSeats.length})`}
         </button>
       </div>
     </div>
