@@ -26,28 +26,96 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
   const [floorPlan, setFloorPlan] = useState<FloorPlan | null>(activeFloorPlan);
   const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newSeatPosition, setNewSeatPosition] = useState<{ x: number; y: number } | null>(null);
+  const [newSeatData, setNewSeatData] = useState({ seatCode: '', type: 'SOLO' as const });
   const imageRef = useRef<HTMLImageElement>(null);
 
   // Filter seats
   const placedSeats = seats.filter(s => s.x !== null && s.y !== null);
   const unplacedSeats = seats.filter(s => s.x === null || s.y === null);
 
+  const generateSeatCode = () => {
+    // Simple heuristic: find max number in "S-X" or just "X" and increment
+    let maxNum = 0;
+    seats.forEach(s => {
+      const match = s.seatCode.match(/(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    });
+    return `S-${maxNum + 1}`;
+  };
+
   const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!selectedSeatId || !imageRef.current) return;
+    if (!imageRef.current) return;
 
     const rect = imageRef.current.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
 
-    // Update seat position
-    setSeats(prev => prev.map(seat => 
-      seat.id === selectedSeatId 
-        ? { ...seat, x, y } 
-        : seat
-    ));
+    if (selectedSeatId) {
+      // Update existing seat position
+      setSeats(prev => prev.map(seat => 
+        seat.id === selectedSeatId 
+          ? { ...seat, x, y } 
+          : seat
+      ));
+      setSelectedSeatId(null);
+    } else {
+      // Start creation flow
+      setNewSeatPosition({ x, y });
+      setNewSeatData({ seatCode: generateSeatCode(), type: 'SOLO' });
+      setShowCreateModal(true);
+    }
+  };
+
+  const handleCreateSeat = async () => {
+    if (!newSeatPosition) return;
     
-    // Auto-select next unplaced seat? Maybe not, could be annoying.
-    setSelectedSeatId(null);
+    try {
+      const res = await fetch('/api/seats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          seatCode: newSeatData.seatCode,
+          type: newSeatData.type,
+          x: newSeatPosition.x,
+          y: newSeatPosition.y,
+          isBlocked: false
+        })
+      });
+
+      if (!res.ok) throw new Error('Failed to create seat');
+      
+      const createdSeat = await res.json();
+      setSeats(prev => [...prev, createdSeat]);
+      setShowCreateModal(false);
+      setNewSeatPosition(null);
+    } catch (error) {
+      alert('Error creating seat');
+    }
+  };
+
+  const handleDeleteSeat = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this seat? This cannot be undone.')) return;
+
+    try {
+      const res = await fetch(`/api/seats/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to delete seat');
+      }
+      
+      setSeats(prev => prev.filter(s => s.id !== id));
+      if (selectedSeatId === id) setSelectedSeatId(null);
+    } catch (error: any) {
+      alert(error.message);
+    }
   };
 
   const handleSave = async () => {
@@ -113,27 +181,100 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-2 space-y-2">
-          {unplacedSeats.map(seat => (
-            <div
-              key={seat.id}
-              onClick={() => setSelectedSeatId(seat.id)}
-              className={`p-3 rounded-md cursor-pointer text-sm border transition-colors ${
-                selectedSeatId === seat.id
-                  ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500'
-                  : 'bg-gray-50 border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="font-medium">{seat.seatCode}</div>
-              <div className="text-xs text-gray-500">{seat.type}</div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-4">
+          {/* Unplaced Seats */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Unplaced ({unplacedSeats.length})</h3>
+            <div className="space-y-2">
+              {unplacedSeats.map(seat => (
+                <div
+                  key={seat.id}
+                  className={`flex items-center justify-between p-3 rounded-md text-sm border transition-colors ${
+                    selectedSeatId === seat.id
+                      ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500'
+                      : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => setSelectedSeatId(seat.id)}
+                >
+                  <div className="flex-1 cursor-pointer">
+                    <div className="font-medium text-gray-900">{seat.seatCode}</div>
+                    <div className="text-xs text-gray-500">{seat.type}</div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteSeat(seat.id);
+                    }}
+                    className="ml-2 p-1 text-gray-400 hover:text-red-600 rounded"
+                    title="Delete seat"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              {unplacedSeats.length === 0 && (
+                <div className="text-center py-4 text-gray-400 text-xs italic">
+                  No unplaced seats
+                </div>
+              )}
             </div>
-          ))}
-          
-          {unplacedSeats.length === 0 && (
-            <div className="text-center py-8 text-gray-400 text-sm">
-              All seats placed!
+          </div>
+
+          {/* Placed Seats */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Placed ({placedSeats.length})</h3>
+            <div className="space-y-2">
+              {placedSeats.map(seat => (
+                <div
+                  key={seat.id}
+                  className={`flex items-center justify-between p-3 rounded-md text-sm border transition-colors ${
+                    selectedSeatId === seat.id
+                      ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500'
+                      : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => setSelectedSeatId(seat.id)}
+                >
+                  <div className="flex-1 cursor-pointer">
+                    <div className="font-medium text-gray-900">{seat.seatCode}</div>
+                    <div className="text-xs text-gray-500">{seat.type}</div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUnassign(seat.id);
+                      }}
+                      className="p-1 text-gray-400 hover:text-orange-600 rounded"
+                      title="Unassign from map"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSeat(seat.id);
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-600 rounded"
+                      title="Delete seat"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {placedSeats.length === 0 && (
+                <div className="text-center py-4 text-gray-400 text-xs italic">
+                  No placed seats
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
         
         <div className="p-4 border-t bg-gray-50">
@@ -148,7 +289,59 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 bg-white border rounded-lg shadow-sm overflow-hidden flex flex-col">
+      <div className="flex-1 bg-white border rounded-lg shadow-sm overflow-hidden flex flex-col relative">
+        {/* Creation Modal */}
+        {showCreateModal && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+            <div className="bg-white p-6 rounded-lg shadow-xl w-80 border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Seat</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Seat Code</label>
+                  <input
+                    type="text"
+                    value={newSeatData.seatCode}
+                    onChange={e => setNewSeatData({ ...newSeatData, seatCode: e.target.value })}
+                    className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                  <select
+                    value={newSeatData.type}
+                    onChange={e => setNewSeatData({ ...newSeatData, type: e.target.value as any })}
+                    className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="SOLO">Solo Desk</option>
+                    <option value="TEAM_CLUSTER">Team Cluster</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      setNewSeatPosition(null);
+                    }}
+                    className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateSeat}
+                    disabled={!newSeatData.seatCode}
+                    className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Create Seat
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {!floorPlan ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
             <div className="max-w-md w-full p-6 bg-gray-50 rounded-xl border border-dashed border-gray-300">
@@ -188,11 +381,9 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
                    style={{ left: `${seat.x}%`, top: `${seat.y}%` }}
                    onClick={(e) => {
                      e.stopPropagation();
-                     if (confirm(`Unassign seat ${seat.seatCode}?`)) {
-                       handleUnassign(seat.id);
-                     }
+                     setSelectedSeatId(seat.id);
                    }}
-                   title={`${seat.seatCode} (${seat.type})`}
+                   title={`${seat.seatCode} (${seat.type}) - Click to select`}
                  >
                    {seat.seatCode}
                  </div>
@@ -200,8 +391,11 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
                
                {/* Selection Indicator Cursor */}
                {selectedSeatId && (
-                  <div className="absolute top-4 right-4 bg-black/75 text-white px-4 py-2 rounded-full text-sm font-medium pointer-events-none">
-                    Click map to place {seats.find(s => s.id === selectedSeatId)?.seatCode}
+                  <div className="absolute top-4 right-4 bg-black/75 text-white px-4 py-2 rounded-full text-sm font-medium pointer-events-none z-10">
+                    {seats.find(s => s.id === selectedSeatId)?.x !== null 
+                      ? `Click map to move ${seats.find(s => s.id === selectedSeatId)?.seatCode}`
+                      : `Click map to place ${seats.find(s => s.id === selectedSeatId)?.seatCode}`
+                    }
                   </div>
                )}
              </div>
