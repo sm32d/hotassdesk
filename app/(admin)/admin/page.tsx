@@ -1,6 +1,4 @@
 import { prisma } from '@/lib/db';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Assuming these exist, if not I'll use raw HTML/Tailwind
-// Actually, to be safe I will use raw Tailwind for now as I am not sure if UI components are installed.
 import Link from 'next/link';
 
 export default async function AdminDashboard() {

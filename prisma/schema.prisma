@@ -41,6 +41,7 @@ model User {
   name          String
   role          Role      @default(EMPLOYEE)
   department    String?
+  isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   
