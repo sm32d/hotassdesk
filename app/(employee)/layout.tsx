@@ -41,15 +41,9 @@ export default async function EmployeeLayout({
                 >
                   My Bookings
                 </Link>
-                <Link
-                  href="/floor-plan"
-                  className="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                >
-                  Floor Plan
-                </Link>
                 {session.user.role === 'ADMIN' && (
                   <Link
-                    href="/admin/seats"
+                    href="/admin"
                     className="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-purple-600 hover:border-purple-300 hover:text-purple-800"
                   >
                     Admin Portal

@@ -988,20 +988,7 @@ export async function cancelBooking(bookingId: string) {
 - Cancel button per booking
 - Past bookings tab (read-only)
 
-**Floor Plan (`/floor-plan/page.tsx`)**
-- Display active floor plan image
-- Zoom controls
-- Legend for seat types
-
 ### **Admin Portal Pages**
-
-**Seat Management (`/admin/seats/page.tsx`)**
-- Data table with inline editing
-- Add new seat modal
-- Block/unblock action with reason input
-- Delete confirmation
-- Filter by type, blocked status
-- Bulk import from CSV (stretch)
 
 **All Bookings (`/admin/bookings/page.tsx`)**
 - Calendar view or table view toggle
@@ -1016,10 +1003,11 @@ export async function cancelBooking(bookingId: string) {
 - Approve/reject actions
 - Expiry date indicators
 
-**Floor Plan Upload (`/admin/floorplan/page.tsx`)**
+**Floor Plan Upload (`/admin/floor-plan/page.tsx`)**
 - Drag-and-drop upload zone
 - Preview before confirm
 - History of previous uploads
+- Block/unblock action with reason input
 
 ***
 
