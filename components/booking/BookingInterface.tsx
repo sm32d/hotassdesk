@@ -179,9 +179,10 @@ export default function BookingInterface() {
       ) : (
         <>
           {viewMode === 'map' && floorPlan ? (
+            <>
             <div className="mb-8 border rounded-lg bg-gray-50 relative overflow-hidden">
                <div className="overflow-auto max-h-[75vh]">
-                 <div className="relative min-w-[800px] min-h-[600px] inline-block">
+                 <div className="relative inline-block">
                    <img
                     src={floorPlan.imageUrl}
                     alt="Floor Plan"
@@ -216,27 +217,28 @@ export default function BookingInterface() {
                    })}
                  </div>
                </div>
-               
-               {/* Legend for Map */}
-               <div className="absolute bottom-4 left-4 z-20 bg-white/95 p-3 rounded-lg shadow-lg text-xs font-medium text-gray-900 space-y-2 backdrop-blur-sm border border-gray-200 pointer-events-none">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-green-100 border border-green-500"></div>
-                    <span>Solo Desk (Available)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-blue-100 border border-blue-500"></div>
-                    <span>Team Desk (Available)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-gray-200 border border-gray-400"></div>
-                    <span>Booked / Unavailable</span>
-                  </div>
-                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-blue-600 border border-blue-800"></div>
-                    <span>Selected</span>
-                  </div>
-               </div>
             </div>
+            
+            {/* Legend for Map */}
+            <div className="mb-8 flex flex-wrap items-center justify-center gap-6 text-sm text-gray-700 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-green-100 border border-green-500"></div>
+                <span>Solo Desk</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-blue-100 border border-blue-500"></div>
+                <span>Team Desk</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-gray-200 border border-gray-400"></div>
+                <span>Unavailable</span>
+              </div>
+               <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-blue-600 border border-blue-800"></div>
+                <span>Selected</span>
+              </div>
+            </div>
+            </>
           ) : viewMode === 'map' && !floorPlan ? (
              <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed">
                 <p className="text-gray-500">No floor plan available. Please switch to List View.</p>

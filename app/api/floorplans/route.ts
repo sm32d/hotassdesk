@@ -46,6 +46,16 @@ export async function POST(request: NextRequest) {
     where: { isActive: true },
     data: { isActive: false }
   });
+
+  // Check if we need to reset seat positions (passed as query param or form field, but easier to just do it always for new floor plan if requested? 
+  // Actually, let's look for a specific field 'resetSeats' in formData)
+  const resetSeats = formData.get('resetSeats') === 'true';
+  
+  if (resetSeats) {
+    await prisma.seat.updateMany({
+      data: { x: null, y: null }
+    });
+  }
   
   // Create new floor plan record
   const floorPlan = await prisma.floorPlan.create({

@@ -9,6 +9,7 @@ interface Seat {
   type: 'SOLO' | 'TEAM_CLUSTER';
   x: number | null;
   y: number | null;
+  hasUpcomingBookings?: boolean;
 }
 
 interface FloorPlan {
@@ -29,6 +30,7 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSeatPosition, setNewSeatPosition] = useState<{ x: number; y: number } | null>(null);
   const [newSeatData, setNewSeatData] = useState({ seatCode: '', type: 'SOLO' as const });
+  const [showInstructions, setShowInstructions] = useState(true);
   const imageRef = useRef<HTMLImageElement>(null);
 
   // Filter seats
@@ -120,6 +122,15 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
 
   const handleSave = async () => {
     setIsSaving(true);
+    
+    // Validate: Force placement of seats with upcoming bookings
+    const unplacedBookedSeats = unplacedSeats.filter(s => s.hasUpcomingBookings);
+    if (unplacedBookedSeats.length > 0) {
+      alert(`Cannot save: The following seats have upcoming bookings and must be placed on the map: ${unplacedBookedSeats.map(s => s.seatCode).join(', ')}`);
+      setIsSaving(false);
+      return;
+    }
+
     try {
       const updates = seats
         .filter(s => s.x !== null && s.y !== null)
@@ -144,8 +155,17 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0]) return;
     
+    if (floorPlan) {
+      const confirmUpdate = confirm("Updating the floor plan will remove all seats from the current map. You will need to place them again. Continue?");
+      if (!confirmUpdate) {
+        e.target.value = ''; // Reset input
+        return;
+      }
+    }
+    
     const formData = new FormData();
     formData.append('file', e.target.files[0]);
+    formData.append('resetSeats', 'true');
 
     try {
       const res = await fetch('/api/floorplans', {
@@ -157,6 +177,8 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
       
       const newPlan = await res.json();
       setFloorPlan(newPlan);
+      // Reset local seat positions to match server-side reset
+      setSeats(prev => prev.map(s => ({ ...s, x: null, y: null })));
     } catch (error) {
       alert('Error uploading floor plan');
     }
@@ -171,7 +193,7 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
   };
 
   return (
-    <div className="flex h-[calc(100vh-100px)] gap-6">
+    <div className="flex h-full gap-6">
       {/* Sidebar */}
       <div className="w-64 flex-shrink-0 flex flex-col bg-white border rounded-lg shadow-sm overflow-hidden">
         <div className="p-4 border-b bg-gray-50">
@@ -197,7 +219,14 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
                   onClick={() => setSelectedSeatId(seat.id)}
                 >
                   <div className="flex-1 cursor-pointer">
-                    <div className="font-medium text-gray-900">{seat.seatCode}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="font-medium text-gray-900">{seat.seatCode}</div>
+                      {seat.hasUpcomingBookings && (
+                        <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium border border-amber-200">
+                          Booked
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-gray-500">{seat.type}</div>
                   </div>
                   <button
@@ -277,7 +306,21 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
           </div>
         </div>
         
-        <div className="p-4 border-t bg-gray-50">
+        <div className="p-4 border-t bg-gray-50 space-y-2">
+           {floorPlan && (
+             <div className="relative">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  title="Update Floor Plan Image"
+                />
+                <button className="w-full py-2 px-4 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-md font-medium text-sm">
+                  Update Floor Plan
+                </button>
+             </div>
+           )}
            <button
             onClick={handleSave}
             disabled={isSaving}
@@ -290,6 +333,27 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
 
       {/* Main Content */}
       <div className="flex-1 bg-white border rounded-lg shadow-sm overflow-hidden flex flex-col relative">
+        {/* Instructions Card */}
+        {showInstructions && (
+          <div className="absolute top-4 left-4 z-20 bg-white/90 backdrop-blur shadow-lg rounded-lg border border-gray-200 p-4 max-w-sm">
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="font-semibold text-gray-900">How to Manage Seats</h3>
+              <button 
+                onClick={() => setShowInstructions(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            <ul className="text-sm text-gray-600 space-y-2 list-disc list-inside">
+              <li><strong>Create Seat:</strong> Click anywhere on the map to add a new seat.</li>
+              <li><strong>Move Seat:</strong> Click an existing seat to select it, then click a new location.</li>
+              <li><strong>Delete Seat:</strong> Use the trash icon in the sidebar list.</li>
+              <li><strong>Unassign:</strong> Use the remove icon in the sidebar to take a seat off the map without deleting it.</li>
+            </ul>
+          </div>
+        )}
+
         {/* Creation Modal */}
         {showCreateModal && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
@@ -303,7 +367,7 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
                     type="text"
                     value={newSeatData.seatCode}
                     onChange={e => setNewSeatData({ ...newSeatData, seatCode: e.target.value })}
-                    className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="text-gray-700 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 
@@ -312,7 +376,7 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
                   <select
                     value={newSeatData.type}
                     onChange={e => setNewSeatData({ ...newSeatData, type: e.target.value as any })}
-                    className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="text-gray-700 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="SOLO">Solo Desk</option>
                     <option value="TEAM_CLUSTER">Team Cluster</option>
@@ -362,7 +426,7 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
           </div>
         ) : (
           <div className="relative flex-1 bg-gray-100 overflow-auto">
-             <div className="relative min-w-[800px] min-h-[600px] inline-block" onClick={handleImageClick}>
+             <div className="relative inline-block" onClick={handleImageClick}>
                <img
                 ref={imageRef}
                 src={floorPlan.imageUrl}
