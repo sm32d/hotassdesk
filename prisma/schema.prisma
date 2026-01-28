@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  EMPLOYEE
+  ADMIN
+}
+
+enum SeatType {
+  SOLO
+  TEAM_CLUSTER
+}
+
+enum BookingSlot {
+  AM
+  PM
+  FULL_DAY
+}
+
+enum BookingStatus {
+  ACTIVE
+  CANCELLED
+}
+
+enum AllocationStatus {
+  PENDING
+  APPROVED
+  EXPIRED
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          Role      @default(EMPLOYEE)
+  department    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  bookings      Booking[]
+  allocationsRequested LongTermAllocation[] @relation("RequestedAllocations")
+  allocationsApproved  LongTermAllocation[] @relation("ApprovedAllocations")
+  floorPlansUploaded   FloorPlan[]
+}
+
+model Seat {
+  id            String    @id @default(uuid())
+  seatCode      String    @unique // e.g., "T21", "S4"
+  type          SeatType
+  hasMonitor    Boolean   @default(false)
+  metadata      Json?     // Flexible JSONB for tags, properties
+  isBlocked     Boolean   @default(false)
+  blockedReason String?
+  x             Float?    // Percentage position X (0-100)
+  y             Float?    // Percentage position Y (0-100)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  bookings      Booking[]
+  allocations   LongTermAllocation[]
+  
+  @@index([type, isBlocked])
+}
+
+model Booking {
+  id            String        @id @default(uuid())
+  userId        String
+  seatId        String
+  bookingDate   DateTime      @db.Date
+  slot          BookingSlot
+  status        BookingStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now())
+  cancelledAt   DateTime?
+  
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seat          Seat          @relation(fields: [seatId], references: [id], onDelete: Cascade)
+  
+  @@unique([seatId, bookingDate, slot, status], name: "unique_active_booking")
+  @@index([seatId, bookingDate, slot, status])
+  @@index([userId, bookingDate])
+}
+
+model LongTermAllocation {
+  id            String            @id @default(uuid())
+  seatId        String
+  allocatedTo   String            // Team/person name
+  reason        String
+  startDate     DateTime          @db.Date
+  endDate       DateTime          @db.Date
+  requestedBy   String
+  approvedBy    String?
+  status        AllocationStatus  @default(PENDING)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  
+  seat          Seat          @relation(fields: [seatId], references: [id], onDelete: Cascade)
+  requester     User          @relation("RequestedAllocations", fields: [requestedBy], references: [id])
+  approver      User?         @relation("ApprovedAllocations", fields: [approvedBy], references: [id])
+  
+  @@index([startDate, endDate, status])
+}
+
+model FloorPlan {
+  id            String    @id @default(uuid())
+  imageUrl      String
+  uploadedBy    String
+  isActive      Boolean   @default(false)
+  uploadedAt    DateTime  @default(now())
+  
+  uploader      User      @relation(fields: [uploadedBy], references: [id])
+}
