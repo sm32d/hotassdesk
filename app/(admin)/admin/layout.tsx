@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <div className="flex h-16 justify-between">
             <div className="flex">
               <div className="flex flex-shrink-0 items-center">
-                <span className="text-xl font-bold">HotAssDesk Admin</span>
+                <span className="text-xl font-bold">HotDesk Admin</span>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                 <Link href="/admin" className="inline-flex items-center px-1 pt-1 text-sm font-medium hover:text-gray-300">

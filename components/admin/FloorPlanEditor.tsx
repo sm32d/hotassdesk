@@ -31,7 +31,14 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
   const [newSeatPosition, setNewSeatPosition] = useState<{ x: number; y: number } | null>(null);
   const [newSeatData, setNewSeatData] = useState({ seatCode: '', type: 'SOLO' as const });
   const [showInstructions, setShowInstructions] = useState(true);
+  const [zoom, setZoom] = useState(1);
+  const [imgDimensions, setImgDimensions] = useState<{ width: number; height: number } | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    setZoom(1);
+    setImgDimensions(null);
+  }, [floorPlan]);
 
   // Filter seats
   const placedSeats = seats.filter(s => s.x !== null && s.y !== null);
@@ -426,13 +433,47 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
           </div>
         ) : (
           <div className="relative flex-1 bg-gray-100 overflow-auto">
+             {/* Zoom Controls */}
+             <div className="sticky top-4 left-4 z-10 inline-flex flex-col gap-2 bg-white/90 backdrop-blur shadow-sm border border-gray-200 p-1 rounded-md">
+               <button 
+                 onClick={(e) => { e.stopPropagation(); setZoom(z => Math.min(3, z + 0.1)); }}
+                 className="p-1 hover:bg-gray-100 rounded text-gray-700"
+                 title="Zoom In"
+               >
+                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                 </svg>
+               </button>
+               <button 
+                 onClick={(e) => { e.stopPropagation(); setZoom(z => Math.max(0.2, z - 0.1)); }}
+                 className="p-1 hover:bg-gray-100 rounded text-gray-700"
+                 title="Zoom Out"
+               >
+                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                   </svg>
+               </button>
+               <div className="text-xs font-medium text-gray-600 text-center py-1 border-t border-gray-100">
+                 {Math.round(zoom * 100)}%
+               </div>
+             </div>
+
              <div className="relative inline-block" onClick={handleImageClick}>
                <img
                 ref={imageRef}
                 src={floorPlan.imageUrl}
                 alt="Floor Plan"
-                className="max-w-none cursor-crosshair"
-                style={{ display: 'block' }} // Ensure no extra space
+                className="max-w-none cursor-crosshair transition-all duration-200 ease-in-out"
+                onLoad={(e) => {
+                  setImgDimensions({
+                    width: e.currentTarget.naturalWidth,
+                    height: e.currentTarget.naturalHeight
+                  });
+                }}
+                style={{ 
+                  display: 'block',
+                  width: imgDimensions ? `${imgDimensions.width * zoom}px` : 'auto'
+                }} 
                />
                
                {/* Render Placed Seats */}

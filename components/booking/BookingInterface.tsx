@@ -32,6 +32,13 @@ export default function BookingInterface() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
+  const [zoom, setZoom] = useState(1);
+  const [imgDimensions, setImgDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    setZoom(1);
+    setImgDimensions(null);
+  }, [floorPlan]);
 
   useEffect(() => {
     fetchAvailability();
@@ -181,13 +188,51 @@ export default function BookingInterface() {
           {viewMode === 'map' && floorPlan ? (
             <>
             <div className="mb-8 border rounded-lg bg-gray-50 relative overflow-hidden">
+               {/* Zoom Controls */}
+               <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 bg-white rounded-md shadow-sm border border-gray-200 p-1">
+                 <button 
+                   onClick={() => setZoom(z => Math.min(3, z + 0.1))}
+                   className="p-1 hover:bg-gray-100 rounded text-gray-700"
+                   title="Zoom In"
+                 >
+                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                   </svg>
+                 </button>
+                 <button 
+                   onClick={() => setZoom(z => Math.max(0.2, z - 0.1))}
+                   className="p-1 hover:bg-gray-100 rounded text-gray-700"
+                   title="Zoom Out"
+                 >
+                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                   </svg>
+                 </button>
+                 <button 
+                   onClick={() => setZoom(1)}
+                   className="p-1 hover:bg-gray-100 rounded text-xs font-medium text-gray-600"
+                   title="Reset Zoom"
+                 >
+                   {Math.round(zoom * 100)}%
+                 </button>
+               </div>
+
                <div className="overflow-auto max-h-[75vh]">
                  <div className="relative inline-block">
                    <img
                     src={floorPlan.imageUrl}
                     alt="Floor Plan"
-                    className="max-w-none"
-                    style={{ display: 'block' }} 
+                    className="max-w-none transition-all duration-200 ease-in-out"
+                    onLoad={(e) => {
+                      setImgDimensions({
+                        width: e.currentTarget.naturalWidth,
+                        height: e.currentTarget.naturalHeight
+                      });
+                    }}
+                    style={{ 
+                      display: 'block',
+                      width: imgDimensions ? `${imgDimensions.width * zoom}px` : 'auto'
+                    }} 
                    />
                    
                    {placedSeats.map(seat => {
