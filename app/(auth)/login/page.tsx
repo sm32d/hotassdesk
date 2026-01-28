@@ -35,7 +35,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100">
       <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md">
-        <h1 className="mb-6 text-center text-2xl font-bold">Hot Desk Booking</h1>
+        <h1 className="mb-6 text-center text-2xl font-bold text-gray-700">Hot Desk Booking</h1>
         
         {error && (
           <div className="mb-4 rounded bg-red-100 p-3 text-sm text-red-700">
@@ -52,7 +52,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="text-gray-700 mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               required
             />
           </div>
@@ -65,7 +65,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="text-gray-700 mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               required
             />
           </div>
