@@ -11,6 +11,8 @@ interface Seat {
   x: number | null;
   y: number | null;
   hasUpcomingBookings?: boolean;
+  isBlocked: boolean;
+  blockedReason?: string | null;
 }
 
 interface FloorPlan {
@@ -38,6 +40,8 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
 
   // Modal States
   const [deleteSeatId, setDeleteSeatId] = useState<string | null>(null);
+  const [blockSeatId, setBlockSeatId] = useState<string | null>(null);
+  const [blockReason, setBlockReason] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [alertState, setAlertState] = useState<{ isOpen: boolean; title: string; message: string }>({
     isOpen: false,
@@ -58,9 +62,17 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
     setAlertState(prev => ({ ...prev, isOpen: false }));
   };
 
-  // Filter seats
-  const placedSeats = seats.filter(s => s.x !== null && s.y !== null);
-  const unplacedSeats = seats.filter(s => s.x === null || s.y === null);
+  // Filter and sort seats
+  const sortSeats = (a: Seat, b: Seat) => 
+    a.seatCode.localeCompare(b.seatCode, undefined, { numeric: true, sensitivity: 'base' });
+
+  const placedSeats = seats
+    .filter(s => s.x !== null && s.y !== null)
+    .sort(sortSeats);
+    
+  const unplacedSeats = seats
+    .filter(s => s.x === null || s.y === null)
+    .sort(sortSeats);
 
   const generateSeatCode = () => {
     // Simple heuristic: find max number in "S-X" or just "X" and increment
@@ -147,6 +159,55 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
       setDeleteSeatId(null);
     } catch (error: any) {
       showAlert('Error', error.message);
+    }
+  };
+
+  const confirmBlockSeat = (seat: Seat) => {
+    setBlockSeatId(seat.id);
+    setBlockReason(seat.blockedReason || '');
+  };
+
+  const executeBlockSeat = async () => {
+    if (!blockSeatId) return;
+
+    try {
+      const res = await fetch(`/api/seats/${blockSeatId}/block`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isBlocked: true, blockedReason: blockReason })
+      });
+
+      if (!res.ok) throw new Error('Failed to block seat');
+
+      setSeats(prev => prev.map(s => 
+        s.id === blockSeatId 
+          ? { ...s, isBlocked: true, blockedReason: blockReason } 
+          : s
+      ));
+      setBlockSeatId(null);
+      setBlockReason('');
+    } catch (error) {
+      showAlert('Error', 'Error blocking seat');
+    }
+  };
+
+  const executeUnblockSeat = async (seatId: string) => {
+    try {
+      const res = await fetch(`/api/seats/${seatId}/block`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isBlocked: false, blockedReason: null })
+      });
+
+      if (!res.ok) throw new Error('Failed to unblock seat');
+
+      setSeats(prev => prev.map(s => 
+        s.id === seatId 
+          ? { ...s, isBlocked: false, blockedReason: null } 
+          : s
+      ));
+    } catch (error) {
+      showAlert('Error', 'Error unblocking seat');
     }
   };
 
@@ -262,7 +323,26 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
                       )}
                     </div>
                     <div className="text-xs text-gray-500">{seat.type}</div>
+                    {seat.isBlocked && (
+                      <div className="text-xs text-red-600 font-medium">Blocked: {seat.blockedReason}</div>
+                    )}
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (seat.isBlocked) {
+                        executeUnblockSeat(seat.id);
+                      } else {
+                        confirmBlockSeat(seat);
+                      }
+                    }}
+                    className={`ml-2 p-1 rounded ${seat.isBlocked ? 'text-red-600 hover:text-red-800' : 'text-gray-400 hover:text-orange-600'}`}
+                    title={seat.isBlocked ? "Unblock seat" : "Block seat"}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                  </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -302,8 +382,27 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
                   <div className="flex-1 cursor-pointer">
                     <div className="font-medium text-gray-900">{seat.seatCode}</div>
                     <div className="text-xs text-gray-500">{seat.type}</div>
+                    {seat.isBlocked && (
+                      <div className="text-xs text-red-600 font-medium">Blocked</div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                      e.stopPropagation();
+                      if (seat.isBlocked) {
+                        executeUnblockSeat(seat.id);
+                      } else {
+                        confirmBlockSeat(seat);
+                      }
+                    }}
+                    className={`p-1 rounded ${seat.isBlocked ? 'text-red-600 hover:text-red-800' : 'text-gray-400 hover:text-orange-600'}`}
+                    title={seat.isBlocked ? "Unblock seat" : "Block seat"}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                  </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -508,16 +607,26 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
                  <div
                    key={seat.id}
                    className={`absolute w-8 h-8 -ml-4 -mt-4 flex items-center justify-center rounded-full text-xs font-bold shadow-md cursor-pointer border-2 transition-transform hover:scale-110 ${
-                     seat.type === 'SOLO' ? 'bg-green-100 border-green-500 text-green-800' : 'bg-blue-100 border-blue-500 text-blue-800'
+                     seat.isBlocked 
+                       ? 'bg-gray-200 border-gray-500 text-gray-500'
+                       : seat.type === 'SOLO' 
+                         ? 'bg-green-100 border-green-500 text-green-800' 
+                         : 'bg-blue-100 border-blue-500 text-blue-800'
                    }`}
                    style={{ left: `${seat.x}%`, top: `${seat.y}%` }}
                    onClick={(e) => {
                      e.stopPropagation();
                      setSelectedSeatId(seat.id);
                    }}
-                   title={`${seat.seatCode} (${seat.type}) - Click to select`}
+                   title={`${seat.seatCode} (${seat.type}) ${seat.isBlocked ? `- Blocked: ${seat.blockedReason}` : '- Click to select'}`}
                  >
-                   {seat.seatCode}
+                   {seat.isBlocked ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                   ) : (
+                     seat.seatCode
+                   )}
                  </div>
                ))}
                
@@ -580,6 +689,52 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
               <option value="SOLO">Solo Desk</option>
               <option value="TEAM_CLUSTER">Team Cluster</option>
             </select>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!blockSeatId}
+        onClose={() => {
+          setBlockSeatId(null);
+          setBlockReason('');
+        }}
+        title="Block Seat"
+        footer={
+          <>
+            <button
+              onClick={executeBlockSeat}
+              disabled={!blockReason.trim()}
+              className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 disabled:opacity-50 sm:w-auto"
+            >
+              Block Seat
+            </button>
+            <button
+              onClick={() => {
+                setBlockSeatId(null);
+                setBlockReason('');
+              }}
+              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+            >
+              Cancel
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Blocking this seat will make it unavailable for booking. Please provide a reason.
+          </p>
+          <div>
+            <label htmlFor="blockReason" className="block text-sm font-medium text-gray-700">Reason</label>
+            <textarea
+              id="blockReason"
+              value={blockReason}
+              onChange={(e) => setBlockReason(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              placeholder="e.g. Broken chair, Reserved for maintenance"
+              rows={3}
+            />
           </div>
         </div>
       </Modal>

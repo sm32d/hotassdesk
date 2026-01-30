@@ -122,8 +122,19 @@ export default function BookingInterface() {
     return false;
   };
 
-  const placedSeats = seats.filter(s => s.x !== null && s.y !== null);
-  const unplacedSeats = seats.filter(s => s.x === null || s.y === null);
+  const sortSeats = (a: Seat, b: Seat) => 
+    a.seatCode.localeCompare(b.seatCode, undefined, { numeric: true, sensitivity: 'base' });
+
+  const placedSeats = seats
+    .filter(s => s.x !== null && s.y !== null)
+    .sort(sortSeats);
+    
+  const unplacedSeats = seats
+    .filter(s => s.x === null || s.y === null)
+    .sort(sortSeats);
+    
+  // Sort all seats for list view when showing everything
+  const sortedSeats = [...seats].sort(sortSeats);
 
   return (
     <div className="rounded-lg bg-white p-6 shadow">
@@ -298,7 +309,7 @@ export default function BookingInterface() {
               )}
               
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                {(viewMode === 'list' ? seats : unplacedSeats).map((seat) => {
+                {(viewMode === 'list' ? sortedSeats : unplacedSeats).map((seat) => {
                   const available = isSeatAvailable(seat);
                   const isSelected = selectedSeats.includes(seat.id);
                   return (

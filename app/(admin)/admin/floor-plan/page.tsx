@@ -30,7 +30,9 @@ export default async function FloorPlanPage() {
     type: seat.type,
     x: seat.x,
     y: seat.y,
-    hasUpcomingBookings: seat.bookings.length > 0
+    hasUpcomingBookings: seat.bookings.length > 0,
+    isBlocked: seat.isBlocked,
+    blockedReason: seat.blockedReason
   }));
 
   return (
