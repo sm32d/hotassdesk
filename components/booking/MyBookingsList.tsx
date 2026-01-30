@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import Modal from '../ui/Modal';
 
 type Booking = {
   id: string;
@@ -17,6 +18,8 @@ type Booking = {
 export default function MyBookingsList() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBookings();
@@ -36,22 +39,28 @@ export default function MyBookingsList() {
     }
   };
 
-  const handleCancel = async (id: string) => {
-    if (!confirm('Are you sure you want to cancel this booking?')) return;
+  const handleCancel = (id: string) => {
+    setCancelBookingId(id);
+  };
+
+  const executeCancel = async () => {
+    if (!cancelBookingId) return;
 
     try {
-      const res = await fetch(`/api/bookings/${id}`, {
+      const res = await fetch(`/api/bookings/${cancelBookingId}`, {
         method: 'DELETE'
       });
       
       if (res.ok) {
-        // Remove from list or refresh
-        setBookings(bookings.filter(b => b.id !== id));
+        setBookings(bookings.filter(b => b.id !== cancelBookingId));
+        setCancelBookingId(null);
       } else {
-        alert('Failed to cancel booking');
+        setAlertMessage('Failed to cancel booking');
+        setCancelBookingId(null);
       }
     } catch (error) {
-      alert('An error occurred');
+      setAlertMessage('An error occurred');
+      setCancelBookingId(null);
     }
   };
 
@@ -68,7 +77,8 @@ export default function MyBookingsList() {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg bg-white shadow">
+    <>
+      <div className="overflow-hidden rounded-lg bg-white shadow">
       <ul className="divide-y divide-gray-200">
         {bookings.map((booking) => (
           <li key={booking.id} className="p-4 sm:p-6">
@@ -96,6 +106,49 @@ export default function MyBookingsList() {
           </li>
         ))}
       </ul>
-    </div>
+      </div>
+
+      <Modal
+        isOpen={!!cancelBookingId}
+        onClose={() => setCancelBookingId(null)}
+        title="Cancel Booking"
+        footer={
+          <>
+            <button
+              onClick={executeCancel}
+              className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:w-auto"
+            >
+              Yes, Cancel Booking
+            </button>
+            <button
+              onClick={() => setCancelBookingId(null)}
+              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+            >
+              Keep Booking
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-500">
+          Are you sure you want to cancel this booking? This action cannot be undone.
+        </p>
+      </Modal>
+
+      <Modal
+        isOpen={!!alertMessage}
+        onClose={() => setAlertMessage(null)}
+        title="Alert"
+        footer={
+          <button
+            onClick={() => setAlertMessage(null)}
+            className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto"
+          >
+            OK
+          </button>
+        }
+      >
+        <p className="text-sm text-gray-500">{alertMessage}</p>
+      </Modal>
+    </>
   );
 }

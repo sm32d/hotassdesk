@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
+import Modal from '../ui/Modal';
 
 interface Seat {
   id: string;
@@ -35,10 +36,27 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
   const [imgDimensions, setImgDimensions] = useState<{ width: number; height: number } | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
+  // Modal States
+  const [deleteSeatId, setDeleteSeatId] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [alertState, setAlertState] = useState<{ isOpen: boolean; title: string; message: string }>({
+    isOpen: false,
+    title: '',
+    message: ''
+  });
+
   useEffect(() => {
     setZoom(1);
     setImgDimensions(null);
   }, [floorPlan]);
+
+  const showAlert = (title: string, message: string) => {
+    setAlertState({ isOpen: true, title, message });
+  };
+
+  const closeAlert = () => {
+    setAlertState(prev => ({ ...prev, isOpen: false }));
+  };
 
   // Filter seats
   const placedSeats = seats.filter(s => s.x !== null && s.y !== null);
@@ -103,15 +121,19 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
       setShowCreateModal(false);
       setNewSeatPosition(null);
     } catch (error) {
-      alert('Error creating seat');
+      showAlert('Error', 'Error creating seat');
     }
   };
 
-  const handleDeleteSeat = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this seat? This cannot be undone.')) return;
+  const confirmDeleteSeat = (id: string) => {
+    setDeleteSeatId(id);
+  };
 
+  const executeDeleteSeat = async () => {
+    if (!deleteSeatId) return;
+    
     try {
-      const res = await fetch(`/api/seats/${id}`, {
+      const res = await fetch(`/api/seats/${deleteSeatId}`, {
         method: 'DELETE'
       });
 
@@ -120,10 +142,11 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
         throw new Error(error.error || 'Failed to delete seat');
       }
       
-      setSeats(prev => prev.filter(s => s.id !== id));
-      if (selectedSeatId === id) setSelectedSeatId(null);
+      setSeats(prev => prev.filter(s => s.id !== deleteSeatId));
+      if (selectedSeatId === deleteSeatId) setSelectedSeatId(null);
+      setDeleteSeatId(null);
     } catch (error: any) {
-      alert(error.message);
+      showAlert('Error', error.message);
     }
   };
 
@@ -133,7 +156,7 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
     // Validate: Force placement of seats with upcoming bookings
     const unplacedBookedSeats = unplacedSeats.filter(s => s.hasUpcomingBookings);
     if (unplacedBookedSeats.length > 0) {
-      alert(`Cannot save: The following seats have upcoming bookings and must be placed on the map: ${unplacedBookedSeats.map(s => s.seatCode).join(', ')}`);
+      showAlert('Cannot Save', `The following seats have upcoming bookings and must be placed on the map: ${unplacedBookedSeats.map(s => s.seatCode).join(', ')}`);
       setIsSaving(false);
       return;
     }
@@ -150,9 +173,9 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
       });
 
       if (!res.ok) throw new Error('Failed to save');
-      alert('Floor plan layout saved successfully!');
+      showAlert('Success', 'Floor plan layout saved successfully!');
     } catch (error) {
-      alert('Error saving layout');
+      showAlert('Error', 'Error saving layout');
       console.error(error);
     } finally {
       setIsSaving(false);
@@ -161,17 +184,20 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0]) return;
+    const file = e.target.files[0];
     
     if (floorPlan) {
-      const confirmUpdate = confirm("Updating the floor plan will remove all seats from the current map. You will need to place them again. Continue?");
-      if (!confirmUpdate) {
-        e.target.value = ''; // Reset input
-        return;
-      }
+      setPendingFile(file);
+      // Reset input value to allow re-selection if cancelled
+      e.target.value = ''; 
+    } else {
+      executeFileUpload(file);
     }
-    
+  };
+
+  const executeFileUpload = async (file: File) => {
     const formData = new FormData();
-    formData.append('file', e.target.files[0]);
+    formData.append('file', file);
     formData.append('resetSeats', 'true');
 
     try {
@@ -186,8 +212,9 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
       setFloorPlan(newPlan);
       // Reset local seat positions to match server-side reset
       setSeats(prev => prev.map(s => ({ ...s, x: null, y: null })));
+      setPendingFile(null);
     } catch (error) {
-      alert('Error uploading floor plan');
+      showAlert('Error', 'Error uploading floor plan');
     }
   };
 
@@ -239,7 +266,7 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDeleteSeat(seat.id);
+                      confirmDeleteSeat(seat.id);
                     }}
                     className="ml-2 p-1 text-gray-400 hover:text-red-600 rounded"
                     title="Delete seat"
@@ -292,7 +319,7 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeleteSeat(seat.id);
+                        confirmDeleteSeat(seat.id);
                       }}
                       className="p-1 text-gray-400 hover:text-red-600 rounded"
                       title="Delete seat"
@@ -507,6 +534,125 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Create New Seat"
+        footer={
+          <>
+            <button
+              onClick={handleCreateSeat}
+              className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto"
+            >
+              Create Seat
+            </button>
+            <button
+              onClick={() => setShowCreateModal(false)}
+              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+            >
+              Cancel
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="seatCode" className="block text-sm font-medium text-gray-700">Seat Code</label>
+            <input
+              type="text"
+              id="seatCode"
+              value={newSeatData.seatCode}
+              onChange={(e) => setNewSeatData({ ...newSeatData, seatCode: e.target.value })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+              placeholder="e.g. S-1"
+            />
+          </div>
+          <div>
+            <label htmlFor="seatType" className="block text-sm font-medium text-gray-700">Type</label>
+            <select
+              id="seatType"
+              value={newSeatData.type}
+              onChange={(e) => setNewSeatData({ ...newSeatData, type: e.target.value as any })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2"
+            >
+              <option value="SOLO">Solo Desk</option>
+              <option value="TEAM_CLUSTER">Team Cluster</option>
+            </select>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!deleteSeatId}
+        onClose={() => setDeleteSeatId(null)}
+        title="Delete Seat"
+        footer={
+          <>
+            <button
+              onClick={executeDeleteSeat}
+              className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:w-auto"
+            >
+              Delete
+            </button>
+            <button
+              onClick={() => setDeleteSeatId(null)}
+              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+            >
+              Cancel
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-500">
+          Are you sure you want to delete this seat? This action cannot be undone.
+        </p>
+      </Modal>
+
+      <Modal
+        isOpen={!!pendingFile}
+        onClose={() => setPendingFile(null)}
+        title="Update Floor Plan?"
+        footer={
+          <>
+            <button
+              onClick={() => pendingFile && executeFileUpload(pendingFile)}
+              className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto"
+            >
+              Update & Reset Seats
+            </button>
+            <button
+              onClick={() => setPendingFile(null)}
+              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+            >
+              Cancel
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-500">
+          Uploading a new floor plan will reset all seat positions. Are you sure you want to continue?
+        </p>
+      </Modal>
+
+      <Modal
+        isOpen={alertState.isOpen}
+        onClose={closeAlert}
+        title={alertState.title}
+        footer={
+          <button
+            onClick={closeAlert}
+            className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto"
+          >
+            OK
+          </button>
+        }
+      >
+        <p className="text-sm text-gray-500">
+          {alertState.message}
+        </p>
+      </Modal>
     </div>
   );
 }
