@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 
 type Seat = {
@@ -61,12 +61,7 @@ export default function BookingInterface() {
     }
   }, [floorPlan]);
 
-  useEffect(() => {
-    fetchAvailability();
-    fetchFloorPlan();
-  }, [date]);
-
-  const fetchFloorPlan = async () => {
+  const fetchFloorPlan = useCallback(async () => {
     try {
       const res = await fetch('/api/floorplans/active');
       if (res.ok) {
@@ -76,9 +71,9 @@ export default function BookingInterface() {
     } catch (error) {
       console.error('Failed to fetch floor plan', error);
     }
-  };
+  }, []);
 
-  const fetchAvailability = async () => {
+  const fetchAvailability = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/bookings/availability?date=${date}`);
@@ -91,7 +86,12 @@ export default function BookingInterface() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [date]);
+
+  useEffect(() => {
+    fetchAvailability();
+    fetchFloorPlan();
+  }, [fetchAvailability, fetchFloorPlan]);
 
   const handleBooking = async () => {
     if (selectedSeats.length === 0) return;

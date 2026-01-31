@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
 
 // Get all bookings (admin only)
 export async function GET(request: NextRequest) {
-  const session = await auth();
+  const session = await getSession();
   if (!session || session.user.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
