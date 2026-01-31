@@ -35,6 +35,7 @@ export default function BookingInterface() {
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [zoom, setZoom] = useState(1);
   const [imgDimensions, setImgDimensions] = useState<{ width: number; height: number } | null>(null);
+  const lastImageUrlRef = useRef<string | null>(null);
 
   const [groupBookings, setGroupBookings] = useState(false);
   
@@ -53,7 +54,11 @@ export default function BookingInterface() {
 
   useEffect(() => {
     setZoom(floorPlan?.defaultZoom || 1);
-    setImgDimensions(null);
+    
+    if (floorPlan?.imageUrl !== lastImageUrlRef.current) {
+      setImgDimensions(null);
+      lastImageUrlRef.current = floorPlan?.imageUrl || null;
+    }
   }, [floorPlan]);
 
   useEffect(() => {
