@@ -20,6 +20,7 @@ type Seat = {
 
 type FloorPlan = {
   imageUrl: string;
+  defaultZoom: number;
 };
 
 export default function BookingInterface() {
@@ -51,7 +52,7 @@ export default function BookingInterface() {
   }, [selectedSeats]);
 
   useEffect(() => {
-    setZoom(1);
+    setZoom(floorPlan?.defaultZoom || 1);
     setImgDimensions(null);
   }, [floorPlan]);
 

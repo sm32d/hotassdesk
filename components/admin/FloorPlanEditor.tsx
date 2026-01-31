@@ -18,6 +18,7 @@ interface Seat {
 interface FloorPlan {
   id: string;
   imageUrl: string;
+  defaultZoom: number;
 }
 
 interface FloorPlanEditorProps {
@@ -34,7 +35,7 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
   const [newSeatPosition, setNewSeatPosition] = useState<{ x: number; y: number } | null>(null);
   const [newSeatData, setNewSeatData] = useState({ seatCode: '', type: 'SOLO' as const });
   const [showInstructions, setShowInstructions] = useState(true);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(activeFloorPlan?.defaultZoom || 1);
   const [imgDimensions, setImgDimensions] = useState<{ width: number; height: number } | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
@@ -50,9 +51,18 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
   });
 
   useEffect(() => {
-    setZoom(1);
-    setImgDimensions(null);
-  }, [floorPlan]);
+    if (activeFloorPlan) {
+      setFloorPlan(activeFloorPlan);
+    }
+  }, [activeFloorPlan]);
+
+  useEffect(() => {
+    // Only update zoom when defaultZoom changes (e.g. initial load or "Set Def")
+    // We do NOT reset imgDimensions here to avoid race conditions with onLoad
+    if (floorPlan?.defaultZoom) {
+      setZoom(floorPlan.defaultZoom);
+    }
+  }, [floorPlan?.defaultZoom]);
 
   const showAlert = (title: string, message: string) => {
     setAlertState({ isOpen: true, title, message });
@@ -271,11 +281,33 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
       
       const newPlan = await res.json();
       setFloorPlan(newPlan);
+      setImgDimensions(null); // Reset dimensions for new image
       // Reset local seat positions to match server-side reset
       setSeats(prev => prev.map(s => ({ ...s, x: null, y: null })));
       setPendingFile(null);
     } catch (error) {
       showAlert('Error', 'Error uploading floor plan');
+    }
+  };
+
+  const handleSetDefaultZoom = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!floorPlan) return;
+    
+    try {
+      const res = await fetch('/api/floorplans/active', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultZoom: zoom })
+      });
+
+      if (!res.ok) throw new Error('Failed to update default zoom');
+      
+      const updated = await res.json();
+      setFloorPlan(prev => prev ? { ...prev, defaultZoom: updated.defaultZoom } : null);
+      showAlert('Success', `Default zoom set to ${Math.round(zoom * 100)}%`);
+    } catch (error) {
+      showAlert('Error', 'Failed to set default zoom');
     }
   };
 
@@ -286,6 +318,8 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
         : seat
     ));
   };
+
+  const isZoomChanged = floorPlan ? Math.abs(zoom - floorPlan.defaultZoom) > 0.001 : false;
 
   return (
     <div className="flex h-full gap-6">
@@ -580,9 +614,18 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
                    </svg>
                </button>
                <div className="text-xs font-medium text-gray-600 text-center py-1 border-t border-gray-100">
-                 {Math.round(zoom * 100)}%
-               </div>
-             </div>
+                {Math.round(zoom * 100)}%
+              </div>
+              {isZoomChanged && (
+                <button
+                  onClick={handleSetDefaultZoom}
+                  className="p-1 hover:bg-blue-50 rounded text-blue-600 border-t border-gray-100 text-xs font-medium"
+                  title="Set as Default Zoom"
+                >
+                  Set Def
+                </button>
+              )}
+            </div>
 
              <div className="relative inline-block" onClick={handleImageClick}>
                <img

@@ -31,27 +31,27 @@ async function main() {
   });
   
   // Create sample seats
-  const seats = [
-    // Solo desks
-    { seatCode: 'S1', type: 'SOLO', hasMonitor: false },
-    { seatCode: 'S2', type: 'SOLO', hasMonitor: false },
-    { seatCode: 'S3', type: 'SOLO', hasMonitor: false },
-    { seatCode: 'S4', type: 'SOLO', hasMonitor: false },
-    // Team cluster desks
-    ...Array.from({ length: 80 }, (_, i) => ({
-      seatCode: `T${i + 1}`,
-      type: 'TEAM_CLUSTER',
-      hasMonitor: true
-    }))
-  ];
+  // const seats = [
+  //   // Solo desks
+  //   { seatCode: 'S1', type: 'SOLO', hasMonitor: false },
+  //   { seatCode: 'S2', type: 'SOLO', hasMonitor: false },
+  //   { seatCode: 'S3', type: 'SOLO', hasMonitor: false },
+  //   { seatCode: 'S4', type: 'SOLO', hasMonitor: false },
+  //   // Team cluster desks
+  //   ...Array.from({ length: 80 }, (_, i) => ({
+  //     seatCode: `T${i + 1}`,
+  //     type: 'TEAM_CLUSTER',
+  //     hasMonitor: true
+  //   }))
+  // ];
   
-  for (const seat of seats) {
-    await prisma.seat.upsert({
-      where: { seatCode: seat.seatCode },
-      update: {},
-      create: seat as any
-    });
-  }
+  // for (const seat of seats) {
+  //   await prisma.seat.upsert({
+  //     where: { seatCode: seat.seatCode },
+  //     update: {},
+  //     create: seat as any
+  //   });
+  // }
 }
 
 main()
