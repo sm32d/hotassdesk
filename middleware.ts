@@ -15,6 +15,11 @@ export default auth((req) => {
     return NextResponse.redirect(new URL('/login', req.url));
   }
   
+  // Check if user is active
+  if (!session.user.isActive) {
+    return NextResponse.redirect(new URL('/login', req.url));
+  }
+  
   // Admin-only routes
   if (pathname.startsWith('/admin') && session.user.role !== 'ADMIN') {
     return NextResponse.redirect(new URL('/dashboard', req.url));

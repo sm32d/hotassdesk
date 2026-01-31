@@ -13,6 +13,12 @@ type AdminNavbarProps = {
 
 export default function AdminNavbar({ user }: AdminNavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsSigningOut(true);
+    await handleSignOut();
+  };
 
   return (
     <nav className="bg-slate-800 text-white shadow-sm">
@@ -120,6 +126,21 @@ export default function AdminNavbar({ user }: AdminNavbarProps) {
                 <div className="text-base font-medium leading-none text-white">{user.name}</div>
                 <div className="text-sm font-medium leading-none text-gray-400 mt-1">{user.email}</div>
               </div>
+            </div>
+            <div className="mt-3 space-y-1 px-2">
+              <button
+                onClick={handleLogout}
+                disabled={isSigningOut}
+                className="block w-full text-left rounded-md px-3 py-2 text-base font-medium text-gray-400 hover:bg-gray-700 hover:text-white disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSigningOut && (
+                  <svg className="h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                )}
+                Sign out
+              </button>
             </div>
           </div>
         </div>

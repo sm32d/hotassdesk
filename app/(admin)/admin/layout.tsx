@@ -9,6 +9,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect('/dashboard');
   }
 
+  if (!session.user.isActive) {
+    redirect('/login');
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       <AdminNavbar user={session.user} />

@@ -31,6 +31,10 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
   const [floorPlan, setFloorPlan] = useState<FloorPlan | null>(activeFloorPlan);
   const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isSettingZoom, setIsSettingZoom] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [unblockingSeatId, setUnblockingSeatId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSeatPosition, setNewSeatPosition] = useState<{ x: number; y: number } | null>(null);
   const [newSeatData, setNewSeatData] = useState({ seatCode: '', type: 'SOLO' as const });
@@ -123,6 +127,7 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
   const handleCreateSeat = async () => {
     if (!newSeatPosition) return;
     
+    setIsProcessing(true);
     try {
       const res = await fetch('/api/seats', {
         method: 'POST',
@@ -144,6 +149,8 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
       setNewSeatPosition(null);
     } catch (error) {
       showAlert('Error', 'Error creating seat');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -154,6 +161,7 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
   const executeDeleteSeat = async () => {
     if (!deleteSeatId) return;
     
+    setIsProcessing(true);
     try {
       const res = await fetch(`/api/seats/${deleteSeatId}`, {
         method: 'DELETE'
@@ -169,6 +177,8 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
       setDeleteSeatId(null);
     } catch (error: any) {
       showAlert('Error', error.message);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -180,6 +190,7 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
   const executeBlockSeat = async () => {
     if (!blockSeatId) return;
 
+    setIsProcessing(true);
     try {
       const res = await fetch(`/api/seats/${blockSeatId}/block`, {
         method: 'PATCH',
@@ -198,10 +209,13 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
       setBlockReason('');
     } catch (error) {
       showAlert('Error', 'Error blocking seat');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const executeUnblockSeat = async (seatId: string) => {
+    setUnblockingSeatId(seatId);
     try {
       const res = await fetch(`/api/seats/${seatId}/block`, {
         method: 'PATCH',
@@ -218,6 +232,8 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
       ));
     } catch (error) {
       showAlert('Error', 'Error unblocking seat');
+    } finally {
+      setUnblockingSeatId(null);
     }
   };
 
@@ -267,6 +283,7 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
   };
 
   const executeFileUpload = async (file: File) => {
+    setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
     formData.append('resetSeats', 'true');
@@ -287,6 +304,8 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
       setPendingFile(null);
     } catch (error) {
       showAlert('Error', 'Error uploading floor plan');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -294,6 +313,7 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
     e.stopPropagation();
     if (!floorPlan) return;
     
+    setIsSettingZoom(true);
     try {
       const res = await fetch('/api/floorplans/active', {
         method: 'PATCH',
@@ -308,6 +328,8 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
       showAlert('Success', `Default zoom set to ${Math.round(zoom * 100)}%`);
     } catch (error) {
       showAlert('Error', 'Failed to set default zoom');
+    } finally {
+      setIsSettingZoom(false);
     }
   };
 
@@ -370,12 +392,20 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
                         confirmBlockSeat(seat);
                       }
                     }}
-                    className={`ml-2 p-1 rounded ${seat.isBlocked ? 'text-red-600 hover:text-red-800' : 'text-gray-400 hover:text-orange-600'}`}
+                    disabled={unblockingSeatId === seat.id}
+                    className={`ml-2 p-1 rounded ${seat.isBlocked ? 'text-red-600 hover:text-red-800' : 'text-gray-400 hover:text-orange-600'} disabled:opacity-50 disabled:cursor-not-allowed`}
                     title={seat.isBlocked ? "Unblock seat" : "Block seat"}
                   >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                    </svg>
+                    {unblockingSeatId === seat.id ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                    )}
                   </button>
                   <button
                     onClick={(e) => {
@@ -430,12 +460,20 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
                         confirmBlockSeat(seat);
                       }
                     }}
-                    className={`p-1 rounded ${seat.isBlocked ? 'text-red-600 hover:text-red-800' : 'text-gray-400 hover:text-orange-600'}`}
+                    disabled={unblockingSeatId === seat.id}
+                    className={`p-1 rounded ${seat.isBlocked ? 'text-red-600 hover:text-red-800' : 'text-gray-400 hover:text-orange-600'} disabled:opacity-50 disabled:cursor-not-allowed`}
                     title={seat.isBlocked ? "Unblock seat" : "Block seat"}
                   >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                    </svg>
+                    {unblockingSeatId === seat.id ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                    )}
                   </button>
                     <button
                       onClick={(e) => {
@@ -491,8 +529,14 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
            <button
             onClick={handleSave}
             disabled={isSaving}
-            className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium disabled:opacity-50"
+            className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium disabled:opacity-50 flex items-center justify-center gap-2"
           >
+            {isSaving && (
+              <svg className="h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            )}
             {isSaving ? 'Saving...' : 'Save Layout'}
           </button>
         </div>
@@ -521,74 +565,35 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
           </div>
         )}
 
-        {/* Creation Modal */}
-        {showCreateModal && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="bg-white p-6 rounded-lg shadow-xl w-80 border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Seat</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Seat Code</label>
-                  <input
-                    type="text"
-                    value={newSeatData.seatCode}
-                    onChange={e => setNewSeatData({ ...newSeatData, seatCode: e.target.value })}
-                    className="text-gray-700 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                  <select
-                    value={newSeatData.type}
-                    onChange={e => setNewSeatData({ ...newSeatData, type: e.target.value as any })}
-                    className="text-gray-700 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="SOLO">Solo Desk</option>
-                    <option value="TEAM_CLUSTER">Team Cluster</option>
-                  </select>
-                </div>
+        {/* Creation Modal - handled by global Modal component */}
 
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setNewSeatPosition(null);
-                    }}
-                    className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCreateSeat}
-                    disabled={!newSeatData.seatCode}
-                    className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    Create Seat
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {!floorPlan ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
             <div className="max-w-md w-full p-6 bg-gray-50 rounded-xl border border-dashed border-gray-300">
               <h3 className="text-lg font-medium text-gray-900 mb-2">No Floor Plan Uploaded</h3>
               <p className="text-gray-500 mb-4">Upload a floor plan image to start mapping seats.</p>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                className="block w-full text-sm text-slate-500
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-full file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-blue-50 file:text-blue-700
-                  hover:file:bg-blue-100"
-              />
+              {isUploading ? (
+                <div className="flex flex-col items-center justify-center py-4">
+                  <svg className="h-8 w-8 animate-spin text-blue-600 mb-2" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <p className="text-sm text-gray-500">Uploading...</p>
+                </div>
+              ) : (
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="block w-full text-sm text-slate-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-full file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-blue-50 file:text-blue-700
+                    hover:file:bg-blue-100"
+                />
+              )}
             </div>
           </div>
         ) : (
@@ -619,10 +624,18 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
               {isZoomChanged && (
                 <button
                   onClick={handleSetDefaultZoom}
-                  className="p-1 hover:bg-blue-50 rounded text-blue-600 border-t border-gray-100 text-xs font-medium"
+                  disabled={isSettingZoom}
+                  className="p-1 hover:bg-blue-50 rounded text-blue-600 border-t border-gray-100 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed flex justify-center"
                   title="Set as Default Zoom"
                 >
-                  Set Def
+                  {isSettingZoom ? (
+                    <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                  ) : (
+                    'Set Def'
+                  )}
                 </button>
               )}
             </div>
@@ -696,13 +709,21 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
           <>
             <button
               onClick={handleCreateSeat}
-              className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto"
+              disabled={isProcessing}
+              className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto disabled:bg-blue-400 disabled:cursor-not-allowed items-center gap-2"
             >
-              Create Seat
+              {isProcessing && (
+                <svg className="h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              )}
+              {isProcessing ? 'Creating...' : 'Create Seat'}
             </button>
             <button
               onClick={() => setShowCreateModal(false)}
-              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+              disabled={isProcessing}
+              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50"
             >
               Cancel
             </button>
@@ -747,17 +768,24 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
           <>
             <button
               onClick={executeBlockSeat}
-              disabled={!blockReason.trim()}
-              className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 disabled:opacity-50 sm:w-auto"
+              disabled={!blockReason.trim() || isProcessing}
+              className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 disabled:opacity-50 sm:w-auto items-center gap-2"
             >
-              Block Seat
+              {isProcessing && (
+                <svg className="h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              )}
+              {isProcessing ? 'Blocking...' : 'Block Seat'}
             </button>
             <button
               onClick={() => {
                 setBlockSeatId(null);
                 setBlockReason('');
               }}
-              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+              disabled={isProcessing}
+              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50"
             >
               Cancel
             </button>
@@ -790,13 +818,21 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
           <>
             <button
               onClick={executeDeleteSeat}
-              className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:w-auto"
+              disabled={isProcessing}
+              className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:w-auto disabled:bg-red-400 disabled:cursor-not-allowed items-center gap-2"
             >
-              Delete
+              {isProcessing && (
+                <svg className="h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              )}
+              {isProcessing ? 'Deleting...' : 'Delete'}
             </button>
             <button
               onClick={() => setDeleteSeatId(null)}
-              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+              disabled={isProcessing}
+              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50"
             >
               Cancel
             </button>
@@ -816,13 +852,21 @@ export default function FloorPlanEditor({ initialSeats, activeFloorPlan }: Floor
           <>
             <button
               onClick={() => pendingFile && executeFileUpload(pendingFile)}
-              className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto"
+              disabled={isUploading}
+              className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed items-center gap-2"
             >
-              Update & Reset Seats
+              {isUploading && (
+                <svg className="h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              )}
+              {isUploading ? 'Uploading...' : 'Update & Reset Seats'}
             </button>
             <button
               onClick={() => setPendingFile(null)}
-              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+              disabled={isUploading}
+              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50"
             >
               Cancel
             </button>

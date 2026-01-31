@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { hash } from 'bcryptjs';
-import { auth } from '@/lib/auth';
+import { getSession } from '@/lib/auth';
 
 // Helper to check admin access
 async function checkAdmin() {
-  const session = await auth();
+  const session = await getSession();
   if (!session || session.user.role !== 'ADMIN') {
     return false;
   }
@@ -94,7 +94,7 @@ export async function DELETE(
     const { id } = params;
 
     // Optional: Prevent deleting yourself
-    const session = await auth();
+    const session = await getSession();
     if (session?.user?.id === id) {
        return NextResponse.json(
         { error: 'Cannot delete your own account' },

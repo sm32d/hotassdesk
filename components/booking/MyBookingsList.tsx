@@ -63,6 +63,7 @@ export default function MyBookingsList() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelData, setCancelData] = useState<{ id: string; isGroup: boolean } | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -90,6 +91,7 @@ export default function MyBookingsList() {
   const executeCancel = async () => {
     if (!cancelData) return;
 
+    setCancelling(true);
     try {
       const url = cancelData.isGroup 
         ? `/api/bookings/groups/${cancelData.id}` 
@@ -117,11 +119,21 @@ export default function MyBookingsList() {
     } catch (error) {
       setAlertMessage('An error occurred');
       setCancelData(null);
+    } finally {
+      setCancelling(false);
     }
   };
 
   if (loading) {
-    return <div className="text-gray-500">Loading bookings...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <svg className="h-8 w-8 animate-spin text-blue-600 mb-4" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+        <div className="text-gray-500 font-medium">Loading bookings...</div>
+      </div>
+    );
   }
 
   const now = new Date();
@@ -343,13 +355,24 @@ export default function MyBookingsList() {
           <>
             <button
               onClick={executeCancel}
-              className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:w-auto"
+              disabled={cancelling}
+              className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:w-auto disabled:bg-red-400 disabled:cursor-not-allowed items-center gap-2"
             >
-              {cancelData?.isGroup ? "Yes, Cancel All Seats" : "Yes, Cancel Booking"}
+              {cancelling && (
+                <svg className="h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              )}
+              {cancelling 
+                ? "Cancelling..." 
+                : (cancelData?.isGroup ? "Yes, Cancel All Seats" : "Yes, Cancel Booking")
+              }
             </button>
             <button
               onClick={() => setCancelData(null)}
-              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+              disabled={cancelling}
+              className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Keep Booking
             </button>

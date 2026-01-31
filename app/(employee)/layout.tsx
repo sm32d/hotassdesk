@@ -13,6 +13,10 @@ export default async function EmployeeLayout({
     redirect('/login');
   }
 
+  if (!session.user.isActive) {
+    redirect('/login');
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <EmployeeNavbar user={session.user} />
