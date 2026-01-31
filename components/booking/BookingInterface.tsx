@@ -37,7 +37,7 @@ export default function BookingInterface() {
   const [imgDimensions, setImgDimensions] = useState<{ width: number; height: number } | null>(null);
   const lastImageUrlRef = useRef<string | null>(null);
 
-  const [groupBookings, setGroupBookings] = useState(false);
+  const [groupBookings, setGroupBookings] = useState(true);
   
   // Recurrence state
   const [isRecurring, setIsRecurring] = useState(false);
@@ -45,12 +45,6 @@ export default function BookingInterface() {
   const [recurrenceEnd, setRecurrenceEnd] = useState<string>(
     format(new Date(new Date().setDate(new Date().getDate() + 7)), 'yyyy-MM-dd')
   );
-
-  useEffect(() => {
-    if (selectedSeats.length <= 1) {
-      setGroupBookings(false);
-    }
-  }, [selectedSeats]);
 
   useEffect(() => {
     setZoom(floorPlan?.defaultZoom || 1);

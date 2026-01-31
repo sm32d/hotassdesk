@@ -277,7 +277,7 @@ export default function MyBookingsList() {
              onClick={() => handleCancel(first.groupId!, true)}
              className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
            >
-             Cancel Group
+             Cancel
            </button>
         </div>
         <div className="ml-2 pl-4 border-l-2 border-blue-200 space-y-2">
