@@ -5,7 +5,7 @@ export default async function AdminDashboard() {
   const stats = {
     totalUsers: await prisma.user.count(),
     totalSeats: await prisma.seat.count(),
-    totalBookings: await prisma.booking.count(),
+    totalBookings: await prisma.booking.count({ where: { status: 'ACTIVE', bookingDate: { gte: new Date() } } }),
     pendingAllocations: await prisma.longTermAllocation.count({
       where: { status: 'PENDING' }
     })
@@ -19,18 +19,38 @@ export default async function AdminDashboard() {
         <div className="bg-white overflow-hidden shadow rounded-lg p-5">
           <dt className="text-sm font-medium text-gray-500 truncate">Total Users</dt>
           <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.totalUsers}</dd>
+          <div className="mt-4">
+            <Link href="/admin/users" className="text-sm font-medium text-blue-600 hover:text-blue-500">
+              View all users &rarr;
+            </Link>
+          </div>
         </div>
         <div className="bg-white overflow-hidden shadow rounded-lg p-5">
           <dt className="text-sm font-medium text-gray-500 truncate">Total Seats</dt>
           <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.totalSeats}</dd>
+          <div className="mt-4">
+            <Link href="/admin/floor-plan" className="text-sm font-medium text-blue-600 hover:text-blue-500">
+              Manage floor plan &rarr;
+            </Link>
+          </div>
         </div>
         <div className="bg-white overflow-hidden shadow rounded-lg p-5">
           <dt className="text-sm font-medium text-gray-500 truncate">Active Bookings</dt>
           <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.totalBookings}</dd>
+          <div className="mt-4">
+            <Link href="/admin/bookings" className="text-sm font-medium text-blue-600 hover:text-blue-500">
+              View all bookings &rarr;
+            </Link>
+          </div>
         </div>
         <div className="bg-white overflow-hidden shadow rounded-lg p-5">
           <dt className="text-sm font-medium text-gray-500 truncate">Pending Approvals</dt>
           <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.pendingAllocations}</dd>
+          <div className="mt-4">
+            <span className="text-sm font-medium text-gray-400 cursor-not-allowed">
+              Coming soon
+            </span>
+          </div>
         </div>
       </div>
 

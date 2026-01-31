@@ -6,7 +6,7 @@ export default async function DashboardPage() {
   const session = await auth();
 
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // today.setHours(0, 0, 0, 0);
 
   const upcomingBookingsCount = session?.user?.id 
     ? await prisma.booking.count({

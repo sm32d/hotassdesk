@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
+import { getBookingDisplayStatus, getBookingStatusColor } from '@/lib/utils';
 
 type BookingWithDetails = {
   id: string;
@@ -35,17 +36,6 @@ export default function BookingsTable({
   const [startDate, setStartDate] = useState(searchParams.get('startDate') || '');
   const [endDate, setEndDate] = useState(searchParams.get('endDate') || '');
   
-  // Debounce search removed in favor of manual search button
-  /*
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      applyFilters();
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [userSearch, seatFilter, statusFilter, startDate, endDate]);
-  */
-
   const applyFilters = () => {
     const params = new URLSearchParams();
     if (userSearch) params.set('user', userSearch);
@@ -111,7 +101,7 @@ export default function BookingsTable({
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 text-gray-900"
             >
               <option value="">All Statuses</option>
-              <option value="ACTIVE">Active</option>
+              <option value="ACTIVE">Active (Not Cancelled)</option>
               <option value="CANCELLED">Cancelled</option>
             </select>
           </div>
@@ -194,13 +184,17 @@ export default function BookingsTable({
                       {booking.slot}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        booking.status === 'ACTIVE' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {booking.status}
-                      </span>
+                      {(() => {
+                        const displayStatus = getBookingDisplayStatus(
+                          booking.status as 'ACTIVE' | 'CANCELLED',
+                          booking.bookingDate
+                        );
+                        return (
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getBookingStatusColor(displayStatus)}`}>
+                            {displayStatus}
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))

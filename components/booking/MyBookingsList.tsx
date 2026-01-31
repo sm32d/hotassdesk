@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import Modal from '../ui/Modal';
+import { getBookingDisplayStatus, getBookingStatusColor } from '@/lib/utils';
 
 type Booking = {
   id: string;
@@ -96,6 +97,14 @@ export default function MyBookingsList() {
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
                     {booking.slot === 'FULL_DAY' ? 'Full Day' : booking.slot}
                   </span>
+                  {(() => {
+                    const displayStatus = getBookingDisplayStatus(booking.status, booking.bookingDate);
+                    return (
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getBookingStatusColor(displayStatus)}`}>
+                        {displayStatus}
+                      </span>
+                    );
+                  })()}
                 </div>
                 {booking.seat.isBlocked && (
                   <div className="mt-2 rounded-md bg-red-50 p-2 border border-red-200">
