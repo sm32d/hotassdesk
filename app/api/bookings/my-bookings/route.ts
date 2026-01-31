@@ -10,12 +10,10 @@ export async function GET() {
   
   const bookings = await prisma.booking.findMany({
     where: {
-      userId: session.user.id,
-      status: 'ACTIVE',
-      bookingDate: { gte: new Date() }
+      userId: session.user.id
     },
     include: { seat: true },
-    orderBy: { bookingDate: 'asc' }
+    orderBy: { bookingDate: 'desc' }
   });
   
   return NextResponse.json(bookings);

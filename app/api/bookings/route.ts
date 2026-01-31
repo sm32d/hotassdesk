@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 
-// Create booking (supports bulk)
+// Create booking (supports bulk and recurrence)
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session) {
@@ -10,16 +10,14 @@ export async function POST(request: NextRequest) {
   }
   
   const body = await request.json();
-  const { bookings } = body; // Array of {seatId, bookingDate, slot}
+  const { bookings, groupBookings, recurrence } = body; 
+  // bookings: Array of {seatId, bookingDate, slot}
+  // recurrence: { type: 'DAILY' | 'WEEKLY', until: string } | undefined
   
-  // Validate max 14 days
-  if (bookings.length > 14) {
-    return NextResponse.json(
-      { error: 'Maximum 14 bookings per request' },
-      { status: 400 }
-    );
+  if (!bookings || bookings.length === 0) {
+    return NextResponse.json({ error: 'No bookings provided' }, { status: 400 });
   }
-  
+
   // Validate no past dates
   const now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -32,17 +30,80 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  // Expand bookings if recurrence is set
+  let allBookings = [...bookings];
   
+  if (recurrence) {
+    const { type, until } = recurrence;
+    const untilDate = new Date(until);
+    // Assume all initial bookings are on the same start date
+    const startDate = new Date(bookings[0].bookingDate); 
+    
+    // Safety check for infinite loops or massive bookings
+    const MAX_RECURRENCE_DAYS = 90; // Limit to ~3 months
+    const msInDay = 24 * 60 * 60 * 1000;
+    const diffDays = Math.ceil((untilDate.getTime() - startDate.getTime()) / msInDay);
+    
+    if (diffDays > MAX_RECURRENCE_DAYS) {
+       return NextResponse.json({ error: 'Cannot book more than 90 days in advance' }, { status: 400 });
+    }
+
+    let currentDate = new Date(startDate);
+    // Advance one step first because the first date is already in `bookings`
+    if (type === 'DAILY') {
+        currentDate.setDate(currentDate.getDate() + 1);
+    } else if (type === 'WEEKLY') {
+        currentDate.setDate(currentDate.getDate() + 7);
+    }
+
+    while (currentDate <= untilDate) {
+      // Check if weekend for DAILY (skip Sat/Sun)
+      if (type === 'DAILY') {
+        const day = currentDate.getDay();
+        if (day === 0 || day === 6) {
+           currentDate.setDate(currentDate.getDate() + 1);
+           continue;
+        }
+      }
+
+      // Add bookings for this date
+      for (const b of bookings) {
+        allBookings.push({
+          ...b,
+          bookingDate: new Date(currentDate) // Clone date
+        });
+      }
+
+      // Advance
+      if (type === 'DAILY') {
+        currentDate.setDate(currentDate.getDate() + 1);
+      } else if (type === 'WEEKLY') {
+        currentDate.setDate(currentDate.getDate() + 7);
+      }
+    }
+  }
+
+  // Final check on total count (to prevent abuse)
+  if (allBookings.length > 100) { 
+     return NextResponse.json({ error: 'Too many bookings generated. Please reduce range or seat count.' }, { status: 400 });
+  }
+  
+  // Use groupId if explicitly grouped OR if recurring (so the whole series is linked)
+  const shouldGroup = (groupBookings && bookings.length > 1) || !!recurrence;
+  const groupId = shouldGroup ? crypto.randomUUID() : null;
+
   try {
     // Use transaction for atomic bulk insert
     const created = await prisma.$transaction(
-      bookings.map((booking: any) =>
+      allBookings.map((booking: any) =>
         prisma.booking.create({
           data: {
             userId: session.user.id,
             seatId: booking.seatId,
             bookingDate: new Date(booking.bookingDate),
-            slot: booking.slot
+            slot: booking.slot,
+            groupId
           },
           include: { seat: true }
         })
@@ -53,7 +114,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     if (error.code === 'P2002') {
       return NextResponse.json(
-        { error: 'One or more seats already booked for selected slot' },
+        { error: 'One or more seats are already booked for the selected dates.' },
         { status: 409 }
       );
     }

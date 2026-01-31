@@ -35,6 +35,21 @@ export default function BookingInterface() {
   const [zoom, setZoom] = useState(1);
   const [imgDimensions, setImgDimensions] = useState<{ width: number; height: number } | null>(null);
 
+  const [groupBookings, setGroupBookings] = useState(false);
+  
+  // Recurrence state
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceType, setRecurrenceType] = useState<'DAILY' | 'WEEKLY'>('WEEKLY');
+  const [recurrenceEnd, setRecurrenceEnd] = useState<string>(
+    format(new Date(new Date().setDate(new Date().getDate() + 7)), 'yyyy-MM-dd')
+  );
+
+  useEffect(() => {
+    if (selectedSeats.length <= 1) {
+      setGroupBookings(false);
+    }
+  }, [selectedSeats]);
+
   useEffect(() => {
     setZoom(1);
     setImgDimensions(null);
@@ -87,7 +102,12 @@ export default function BookingInterface() {
             seatId,
             bookingDate: date,
             slot
-          }))
+          })),
+          groupBookings,
+          recurrence: isRecurring ? {
+            type: recurrenceType,
+            until: recurrenceEnd
+          } : undefined
         })
       });
       
@@ -162,7 +182,51 @@ export default function BookingInterface() {
             <option value="PM">Afternoon (PM)</option>
           </select>
         </div>
-        <div className="flex items-end p-2">
+        
+        {/* Recurrence Controls */}
+        <div className="md:col-span-2">
+           <div className="flex items-center">
+             <input
+               id="is-recurring"
+               type="checkbox"
+               checked={isRecurring}
+               onChange={(e) => setIsRecurring(e.target.checked)}
+               className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+             />
+             <label htmlFor="is-recurring" className="ml-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
+               Repeat Booking
+             </label>
+           </div>
+           
+           <div className="mt-1 flex items-center">
+              {isRecurring ? (
+                <div className="flex gap-2 items-center w-full">
+                 <select
+                   value={recurrenceType}
+                   onChange={(e) => setRecurrenceType(e.target.value as any)}
+                   className="text-gray-700 text-sm block w-1/3 rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:outline-none"
+                 >
+                   <option value="DAILY">Daily (Mon-Fri)</option>
+                   <option value="WEEKLY">Weekly</option>
+                 </select>
+                 <span className="text-sm text-gray-500">until</span>
+                 <input
+                   type="date"
+                   value={recurrenceEnd}
+                   min={date}
+                   onChange={(e) => setRecurrenceEnd(e.target.value)}
+                   className="text-gray-700 text-sm block flex-1 rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:outline-none"
+                 />
+               </div>
+             ) : (
+                <span className="text-xs text-gray-400">
+                  Enable to book multiple days
+                </span>
+             )}
+           </div>
+        </div>
+
+        <div className="flex items-end p-2 md:col-span-4 md:justify-end">
           <div className="flex rounded-md shadow-sm" role="group">
             <button
               type="button"
@@ -348,15 +412,31 @@ export default function BookingInterface() {
 
       {/* Booking Footer */}
       <div className="mt-8 flex items-center justify-between border-t pt-6">
-        <div className="text-sm text-gray-500">
-          {selectedSeats.length > 0 ? (
-            <span>
-              Selected ({selectedSeats.length}): <span className="font-bold text-gray-900">
-                {seats.filter(s => selectedSeats.includes(s.id)).map(s => s.seatCode).join(', ')}
+        <div className="flex flex-col gap-2">
+          <div className="text-sm text-gray-500">
+            {selectedSeats.length > 0 ? (
+              <span>
+                Selected ({selectedSeats.length}): <span className="font-bold text-gray-900">
+                  {seats.filter(s => selectedSeats.includes(s.id)).map(s => s.seatCode).join(', ')}
+                </span>
               </span>
-            </span>
-          ) : (
-            'Select seats to continue'
+            ) : (
+              'Select seats to continue'
+            )}
+          </div>
+          {selectedSeats.length > 1 && (
+            <div className="flex items-center">
+              <input
+                id="group-booking"
+                type="checkbox"
+                checked={groupBookings}
+                onChange={(e) => setGroupBookings(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="group-booking" className="ml-2 text-sm text-gray-700">
+                Book as a group (manage together)
+              </label>
+            </div>
           )}
         </div>
         <button

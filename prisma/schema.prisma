@@ -77,6 +77,7 @@ model Booking {
   bookingDate   DateTime      @db.Date
   slot          BookingSlot
   status        BookingStatus @default(ACTIVE)
+  groupId       String?       // Optional ID to group multiple bookings together
   createdAt     DateTime      @default(now())
   cancelledAt   DateTime?
   
@@ -86,6 +87,7 @@ model Booking {
   @@unique([seatId, bookingDate, slot, status], name: "unique_active_booking")
   @@index([seatId, bookingDate, slot, status])
   @@index([userId, bookingDate])
+  @@index([groupId])
 }
 
 model LongTermAllocation {
