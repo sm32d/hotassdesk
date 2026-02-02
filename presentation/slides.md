@@ -37,11 +37,11 @@ layout: default
 **Name:** D^3 Vibe
 
 ## Members
-**Dominik**
-
-**Daniel**
-
-**Darren**
+<ul>
+  <li><strong>Dominik</strong></li>
+  <li><strong>Daniel</strong></li>
+  <li><strong>Darren</strong></li>
+</ul>
 
 </div>
 
