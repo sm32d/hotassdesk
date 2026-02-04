@@ -1,4 +1,4 @@
-# HotAssDesk 🪑
+# HotDesk 🪑
 
 A modern, automated desk booking system to replace manual spreadsheets. Built with Next.js, Prisma, and PostgreSQL.
 
@@ -44,7 +44,7 @@ Create a `.env` file in the root directory (or check the existing one) with the 
 # Database Connection
 # Replace 'username' with your local postgres user (e.g., 'postgres' or your system username)
 # Replace 'password' if you have one set
-DATABASE_URL="postgresql://username:password@localhost:5432/hotassdesk"
+DATABASE_URL="postgresql://username:password@localhost:5432/hotdesk"
 
 # Authentication
 NEXTAUTH_URL="http://localhost:3000"
